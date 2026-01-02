@@ -30,6 +30,7 @@ MAX_RETRIES=5
 INITIAL_BACKOFF=10
 BACKOFF_MULTIPLIER=2
 TUNNEL_PROTOCOL="wireguard"
+ALLOW_LAN=true
 INTERACTIVE_MODE=false
 SETUP_MODE=false
 
@@ -181,6 +182,9 @@ BACKOFF_MULTIPLIER=$BACKOFF_MULTIPLIER
 
 # VPN tunnel protocol (wireguard or openvpn)
 TUNNEL_PROTOCOL="$TUNNEL_PROTOCOL"
+
+# Allow local network (LAN) access (prevents SSH disconnection)
+ALLOW_LAN=$ALLOW_LAN
 EOF
     chmod 600 "$tmp_config"
     mv "$tmp_config" "$CONFIG_FILE"
@@ -292,6 +296,16 @@ mullvad_set_relay() {
 mullvad_set_protocol() {
     local protocol="$1"
     mullvad relay set tunnel-protocol "$protocol" &>/dev/null || true
+    return 0
+}
+
+mullvad_set_lan() {
+    local allow="$1"
+    if [[ "$allow" == true ]]; then
+        mullvad lan set allow &>/dev/null || true
+    else
+        mullvad lan set block &>/dev/null || true
+    fi
     return 0
 }
 
@@ -635,6 +649,20 @@ wizard_advanced() {
         esac
         
         echo
+        echo "━━━ Local Network (LAN) Access ━━━"
+        echo "If you are connected via SSH, you MUST enable this."
+        echo -e "  ${BOLD}1)${NC} Enable LAN access (recommended for SSH)"
+        echo -e "  ${BOLD}2)${NC} Block LAN access (maximum isolation)"
+        echo
+        read -rp "$CHOICE_PROMPT_12" lan_choice
+        
+        case "$lan_choice" in
+            1) ALLOW_LAN=true ;;
+            2) ALLOW_LAN=false ;;
+            *) ALLOW_LAN=true ;;
+        esac
+        
+        echo
         echo "━━━ Connection Retries ━━━"
         read -rp "Maximum retry attempts [default: 5]: " max_retry_input
         if [[ "$max_retry_input" =~ ^[0-9]+$ ]] && [[ "$max_retry_input" -ge 1 ]]; then
@@ -644,6 +672,7 @@ wizard_advanced() {
         print_success "Advanced settings configured"
     else
         TUNNEL_PROTOCOL="$PROTO_WIREGUARD"
+        ALLOW_LAN=true
         MAX_RETRIES=5
         print_success "Using recommended defaults"
     fi
@@ -667,7 +696,8 @@ wizard_summary() {
     
     echo -e "  Server location:     ${BOLD}${COUNTRY_CODE}${NC}"
     echo -e "  Rotation interval:   ${BOLD}${human_interval}${NC}"
-    echo -e "  Tunnel protocol:     ${BOLD}${TUNNEL_PROTOCOL}${NC}"
+    echo -e "  Protocol:            ${BOLD}${TUNNEL_PROTOCOL}${NC}"
+    echo -e "  LAN Access:          ${BOLD}$( [[ "$ALLOW_LAN" == true ]] && echo "Enabled" || echo "Blocked" )${NC}"
     echo -e "  Save logs to file:   ${BOLD}${LOG_TO_FILE}${NC}"
     [[ "$LOG_TO_FILE" == true ]] && echo -e "  Log file:            ${BOLD}${LOG_FILE}${NC}"
     echo -e "  Max retry attempts:  ${BOLD}${MAX_RETRIES}${NC}"
@@ -808,6 +838,9 @@ rotation_loop() {
     
     # Set tunnel protocol
     mullvad_set_protocol "$TUNNEL_PROTOCOL"
+    
+    # Set LAN access
+    mullvad_set_lan "$ALLOW_LAN"
     
     RETRY_COUNT=0
     BACKOFF_DELAY=$INITIAL_BACKOFF
@@ -980,6 +1013,13 @@ main() {
     
     # Root required for main operations
     require_root
+    
+    # Check if running via SSH
+    if [[ -n "${SSH_CLIENT:-}" || -n "${SSH_TTY:-}" ]]; then
+        print_warning "SSH Session detected!"
+        print_info "Ensuring LAN access is enabled to prevent disconnection..."
+        mullvad lan set allow &>/dev/null || true
+    fi
     
     # Check dependencies
     require_cmd mullvad mullvad-vpn
