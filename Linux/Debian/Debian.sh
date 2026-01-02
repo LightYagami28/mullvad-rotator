@@ -9,7 +9,7 @@ set -o nounset
 set -o pipefail
 
 # Ensure the script is run with Bash
-if [ -z "${BASH_VERSION:-}" ]; then
+if [[ -z "${BASH_VERSION:-}" ]]; then
     echo "Error: This script must be run with bash." >&2
     echo "Use: sudo bash $0" >&2
     exit 1
