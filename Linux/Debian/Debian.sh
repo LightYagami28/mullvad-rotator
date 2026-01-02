@@ -128,7 +128,8 @@ require_root() {
 
 require_cmd() {
     local cmd="$1"
-    local package="${2:-$1}"
+    local arg2="${2:-}"
+    local package="${arg2:-$cmd}"
     
     if ! command -v "$cmd" &>/dev/null; then
         die "Required command '$cmd' not found. Install it with: apt install $package" 1
