@@ -37,7 +37,7 @@
 ## 📦 Installazione
 
 👉 **Consulta il file dedicato:**  
-📄 **[INSTALLATION.md](INSTALLATION.md)**
+📄 **([INSTALLATION.md](https://github.com/LightYagami28/mullvad-rotator/blob/main/INSTALLATION.MD))**
 
 ---
 
