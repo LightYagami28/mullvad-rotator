@@ -2,11 +2,10 @@
 
 🔄 Rotazione automatica dei server Mullvad VPN per una maggiore privacy
 
-![License](https://img.shields.io/github/license/YOUR-USERNAME/mullvad-rotator)
-![Version](https://img.shields.io/github/v/release/YOUR-USERNAME/mullvad-rotator)
-![Stars](https://img.shields.io/github/stars/YOUR-USERNAME/mullvad-rotator?style=social)
-![Issues](https://img.shields.io/github/issues/YOUR-USERNAME/mullvad-rotator)
-![Last Commit](https://img.shields.io/github/last-commit/YOUR-USERNAME/mullvad-rotator)
+![License](https://img.shields.io/github/license/LightYagami28/mullvad-rotator)
+![Stars](https://img.shields.io/github/stars/LightYagami28/mullvad-rotator?style=social)
+![Issues](https://img.shields.io/github/issues/LightYagami28/mullvad-rotator)
+![Last Commit](https://img.shields.io/github/last-commit/LightYagami28/mullvad-rotator)
 
 ![Platform](https://img.shields.io/badge/platform-Debian%20%7C%20Ubuntu-orange)
 ![VPN](https://img.shields.io/badge/VPN-Mullvad-green)
