@@ -116,6 +116,7 @@ die() {
     local exit_code="${2:-1}"
     print_error "$msg"
     exit "$exit_code"
+    return 0
 }
 
 require_root() {
@@ -176,6 +177,7 @@ EOF
     chmod 600 "$tmp_config"
     mv "$tmp_config" "$CONFIG_FILE"
     print_success "Configuration saved to $CONFIG_FILE"
+    return 0
 }
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -359,6 +361,7 @@ cleanup() {
     release_lock
     log "Goodbye!"
     exit 0
+    return 0
 }
 
 setup_signals() {
@@ -921,10 +924,10 @@ stop_service() {
 # ═══════════════════════════════════════════════════════════════════════════════
 
 main() {
-    local first_arg="$1"
     # Parse command line arguments
     while [[ $# -gt 0 ]]; do
-        case "$1" in
+        local current_arg="$1"
+        case "$current_arg" in
             --setup|-s)
                 SETUP_MODE=true
                 shift
@@ -954,7 +957,7 @@ main() {
                 exit 0
                 ;;
             *)
-                die "Unknown option: $1. Use --help for usage information."
+                die "Unknown option: $current_arg. Use --help for usage information."
                 ;;
         esac
     done
