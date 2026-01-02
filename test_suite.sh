@@ -2,7 +2,9 @@
 
 # Mock functions for testing
 mullvad() {
-    case "$1 $2" in
+    local cmd="$1"
+    local sub_cmd="$2"
+    case "$cmd $sub_cmd" in
         "status ")
             echo "$MOCK_STATUS"
             ;;
@@ -13,6 +15,7 @@ mullvad() {
             return 0
             ;;
     esac
+    return 0
 }
 
 # Functions to test (copied from Debian.sh)
@@ -29,36 +32,41 @@ mullvad_get_status() {
     else
         echo "unknown"
     fi
+    return 0
 }
 
 mullvad_get_location() {
     local status
-    status=$(mullvad status 2>/dev/null) || { echo "none"; return; }
+    status=$(mullvad status 2>/dev/null) || { echo "none"; return 0; }
     local location
     location=$(echo "$status" | grep -oP 'in \K[^,^.]+, [^,^.]+' | head -1) || true
     if [[ -n "$location" ]]; then echo "$location"; else echo "none"; fi
+    return 0
 }
 
 mullvad_get_country_code() {
     local status
-    status=$(mullvad status 2>/dev/null) || { echo "none"; return; }
+    status=$(mullvad status 2>/dev/null) || { echo "none"; return 0; }
     local relay
     relay=$(echo "$status" | grep -oP 'Connected to \K[a-z]{2}' | head -1) || true
     if [[ -n "$relay" ]]; then echo "$relay"; else echo "none"; fi
+    return 0
 }
 
 mullvad_get_ip() {
     local status
-    status=$(mullvad status 2>/dev/null) || { echo "unknown"; return; }
+    status=$(mullvad status 2>/dev/null) || { echo "unknown"; return 0; }
     local ip
     ip=$(echo "$status" | grep -oP 'IPv4: \K[0-9.]+' | head -1) || true
     if [[ -n "$ip" ]]; then echo "$ip"; else echo "unknown"; fi
+    return 0
 }
 
 mullvad_list_countries() {
     mullvad relay list 2>/dev/null | \
         grep -oP '^[a-z]{2}\s+[A-Za-z ]+' | \
         sort -u
+    return 0
 }
 
 mullvad_validate_country() {
@@ -103,6 +111,7 @@ de	Germany"
     ! mullvad_validate_country "it" || echo "Fail: validate_country (invalid)"
     
     echo "Tests completed on WSL."
+    return 0
 }
 
 test_parsing

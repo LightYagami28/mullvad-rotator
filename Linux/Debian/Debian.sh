@@ -26,6 +26,16 @@ TUNNEL_PROTOCOL="wireguard"
 INTERACTIVE_MODE=false
 SETUP_MODE=false
 
+# Constants for repeated literals
+readonly PROTO_WIREGUARD="wireguard"
+readonly PROTO_OPENVPN="openvpn"
+readonly STATUS_CONNECTED="connected"
+readonly STATUS_CONNECTING="connecting"
+readonly STATUS_DISCONNECTED="disconnected"
+readonly CHOICE_PROMPT_12="Your choice [1-2]: "
+readonly CHOICE_PROMPT_13="Your choice [1-3]: "
+readonly CHOICE_PROMPT_15="Your choice [1-5]: "
+
 # Runtime state
 RETRY_COUNT=0
 BACKOFF_DELAY=0
@@ -176,12 +186,12 @@ mullvad_get_status() {
     local status
     status=$(mullvad status 2>/dev/null) || echo "Unknown"
     
-    if echo "$status" | grep -qi "disconnected"; then
-        echo "disconnected"
-    elif echo "$status" | grep -qi "connecting"; then
-        echo "connecting"
-    elif echo "$status" | grep -qi "connected"; then
-        echo "connected"
+    if echo "$status" | grep -qi "$STATUS_DISCONNECTED"; then
+        echo "$STATUS_DISCONNECTED"
+    elif echo "$status" | grep -qi "$STATUS_CONNECTING"; then
+        echo "$STATUS_CONNECTING"
+    elif echo "$status" | grep -qi "$STATUS_CONNECTED"; then
+        echo "$STATUS_CONNECTED"
     else
         echo "unknown"
     fi
@@ -432,7 +442,7 @@ wizard_country_selection() {
     echo
     
     while true; do
-        read -rp "Your choice [1-2]: " choice
+        read -rp "$CHOICE_PROMPT_12" choice
         
         case "$choice" in
             1)
@@ -487,7 +497,7 @@ wizard_rotation_interval() {
     echo
     
     while true; do
-        read -rp "Your choice [1-5]: " choice
+        read -rp "$CHOICE_PROMPT_15" choice
         
         case "$choice" in
             1) RECONNECT_INTERVAL=30; break ;;
@@ -535,7 +545,7 @@ wizard_logging() {
     echo
     
     while true; do
-        read -rp "Your choice [1-2]: " choice
+        read -rp "$CHOICE_PROMPT_12" choice
         
         case "$choice" in
             1)
@@ -590,7 +600,7 @@ wizard_advanced() {
     echo -e "  ${BOLD}2)${NC} Customize advanced settings"
     echo
     
-    read -rp "Your choice [1-2]: " choice
+    read -rp "$CHOICE_PROMPT_12" choice
     
     if [[ "$choice" == "2" ]]; then
         echo
@@ -598,12 +608,12 @@ wizard_advanced() {
         echo -e "  ${BOLD}1)${NC} WireGuard (faster, recommended)"
         echo -e "  ${BOLD}2)${NC} OpenVPN (more compatible)"
         echo
-        read -rp "Your choice [1-2]: " proto_choice
+        read -rp "$CHOICE_PROMPT_12" proto_choice
         
         case "$proto_choice" in
-            1) TUNNEL_PROTOCOL="wireguard" ;;
-            2) TUNNEL_PROTOCOL="openvpn" ;;
-            *) TUNNEL_PROTOCOL="wireguard" ;;
+            1) TUNNEL_PROTOCOL="$PROTO_WIREGUARD" ;;
+            2) TUNNEL_PROTOCOL="$PROTO_OPENVPN" ;;
+            *) TUNNEL_PROTOCOL="$PROTO_WIREGUARD" ;;
         esac
         
         echo
@@ -615,7 +625,7 @@ wizard_advanced() {
         
         print_success "Advanced settings configured"
     else
-        TUNNEL_PROTOCOL="wireguard"
+        TUNNEL_PROTOCOL="$PROTO_WIREGUARD"
         MAX_RETRIES=5
         print_success "Using recommended defaults"
     fi
@@ -665,7 +675,7 @@ wizard_save_and_install() {
     echo -e "  ${BOLD}3)${NC} Save configuration only"
     echo
     
-    read -rp "Your choice [1-3]: " choice
+    read -rp "$CHOICE_PROMPT_13" choice
     
     save_config
     
@@ -791,7 +801,7 @@ rotation_loop() {
         
         # For specific country: skip rotation if already connected correctly
         if [[ "$COUNTRY_CODE" != "any" ]]; then
-            if [[ "$current_status" == "connected" && "$current_country" == "$COUNTRY_CODE" ]]; then
+            if [[ "$current_status" == "$STATUS_CONNECTED" && "$current_country" == "$COUNTRY_CODE" ]]; then
                 log "Connected to $COUNTRY_CODE. Next rotation in ${RECONNECT_INTERVAL}s."
                 sleep "$RECONNECT_INTERVAL" || true
                 RETRY_COUNT=0
@@ -800,7 +810,7 @@ rotation_loop() {
             fi
         else
             # For "any": wait interval if already connected, then rotate
-            if [[ "$current_status" == "connected" ]]; then
+            if [[ "$current_status" == "$STATUS_CONNECTED" ]]; then
                 log "Connected to $current_country. Rotating in ${RECONNECT_INTERVAL}s."
                 sleep "$RECONNECT_INTERVAL" || true
             fi
@@ -911,6 +921,7 @@ stop_service() {
 # ═══════════════════════════════════════════════════════════════════════════════
 
 main() {
+    local first_arg="$1"
     # Parse command line arguments
     while [[ $# -gt 0 ]]; do
         case "$1" in
