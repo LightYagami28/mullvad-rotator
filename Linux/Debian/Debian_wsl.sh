@@ -327,10 +327,8 @@ mullvad_reconnect() {
     
     mullvad_disconnect
     mullvad_set_relay "$country"
-    if mullvad_connect; then
-        return 0
-    fi
-    return 1
+    mullvad_connect
+    return 0
 }
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -359,12 +357,6 @@ release_lock() {
 # ═══════════════════════════════════════════════════════════════════════════════
 
 cleanup() {
-    # Guard against multiple calls (e.g., trap combination)
-    if [[ "${CLEANUP_IN_PROGRESS:-false}" == "true" ]]; then
-        return 0
-    fi
-    export CLEANUP_IN_PROGRESS=true
-    
     RUNNING=false
     echo
     log "Shutting down gracefully..."
@@ -377,6 +369,7 @@ cleanup() {
     release_lock
     log "Goodbye!"
     exit 0
+    return 0
 }
 
 setup_signals() {
@@ -813,32 +806,27 @@ rotation_loop() {
     BACKOFF_DELAY=$INITIAL_BACKOFF
     
     while $RUNNING; do
-        local current_status current_country current_location
+        local current_status current_country
         current_status=$(mullvad_get_status)
         current_country=$(mullvad_get_country_code)
-        current_location=$(mullvad_get_location)
         
-        # Check if we are already connected to a valid relay
-        if [[ "$current_status" == "$STATUS_CONNECTED" ]]; then
-            # Verification for specific country
-            if [[ "$COUNTRY_CODE" != "any" && "$current_country" != "$COUNTRY_CODE" ]]; then
-                log "Connected to $current_country but expected $COUNTRY_CODE. Rotating..."
-            else
-                log "Current status: $current_status at $current_country ($current_location). Next rotation in ${RECONNECT_INTERVAL}s."
+        # For specific country: skip rotation if already connected correctly
+        if [[ "$COUNTRY_CODE" != "any" ]]; then
+            if [[ "$current_status" == "$STATUS_CONNECTED" && "$current_country" == "$COUNTRY_CODE" ]]; then
+                log "Connected to $COUNTRY_CODE. Next rotation in ${RECONNECT_INTERVAL}s."
                 sleep "$RECONNECT_INTERVAL" || true
-                
-                # If we are in specific country mode, we stay with current relay
-                # unless a rotation is explicitly needed (which 'any' mode does every loop)
-                if [[ "$COUNTRY_CODE" != "any" ]]; then
-                    RETRY_COUNT=0
-                    BACKOFF_DELAY=$INITIAL_BACKOFF
-                    continue
-                fi
-                log "Time to rotate to a new relay..."
+                RETRY_COUNT=0
+                BACKOFF_DELAY=$INITIAL_BACKOFF
+                continue
+            fi
+        else
+            # For "any": wait interval if already connected, then rotate
+            if [[ "$current_status" == "$STATUS_CONNECTED" ]]; then
+                log "Connected to $current_country. Rotating in ${RECONNECT_INTERVAL}s."
+                sleep "$RECONNECT_INTERVAL" || true
             fi
         fi
         
-        # rotation/connection phase
         log "Connecting to new relay (target: $COUNTRY_CODE)..."
         
         if mullvad_reconnect "$COUNTRY_CODE"; then
@@ -846,10 +834,15 @@ rotation_loop() {
             new_country=$(mullvad_get_country_code)
             new_location=$(mullvad_get_location)
             
-            log "Successfully connected to $new_country ($new_location)"
+            log "Connected to $new_country ($new_location)"
             
             RETRY_COUNT=0
             BACKOFF_DELAY=$INITIAL_BACKOFF
+            
+            # Only sleep if this is a specific country (for "any", we already slept above)
+            if [[ "$COUNTRY_CODE" != "any" ]]; then
+                sleep "$RECONNECT_INTERVAL" || true
+            fi
         else
             ((RETRY_COUNT++)) || true
             log "Connection failed (attempt $RETRY_COUNT/$MAX_RETRIES)" "ERROR"
@@ -862,11 +855,10 @@ rotation_loop() {
             log "Retrying in ${BACKOFF_DELAY}s..." "WARN"
             sleep "$BACKOFF_DELAY" || true
             BACKOFF_DELAY=$((BACKOFF_DELAY * BACKOFF_MULTIPLIER))
+            
+            # Cap backoff at 5 minutes
             [[ $BACKOFF_DELAY -gt 300 ]] && BACKOFF_DELAY=300
         fi
-        
-        # Small safety sleep to prevent tight loops in case of unexpected state
-        sleep 2
     done
     return 0
 }
