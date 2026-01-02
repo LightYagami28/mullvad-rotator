@@ -53,41 +53,66 @@ print_header() {
     echo -e "${CYAN}║${NC}${BOLD}           Mullvad VPN Server Rotator v${SCRIPT_VERSION}           ${NC}${CYAN}║${NC}"
     echo -e "${CYAN}╚════════════════════════════════════════════════════════════╝${NC}"
     echo
+    return 0
 }
 
 print_section() {
-    echo -e "\n${BLUE}━━━ $1 ━━━${NC}\n"
+    local section_title="$1"
+    echo -e "\n${BLUE}━━━ $section_title ━━━${NC}\n"
+    return 0
 }
 
-print_success() { echo -e "${GREEN}✓${NC} $1"; }
-print_error() { echo -e "${RED}✗${NC} $1" >&2; }
-print_warning() { echo -e "${YELLOW}!${NC} $1"; }
-print_info() { echo -e "${BLUE}→${NC} $1"; }
+print_success() {
+    local msg="$1"
+    echo -e "${GREEN}✓${NC} $msg"
+    return 0
+}
+print_error() {
+    local msg="$1"
+    echo -e "${RED}✗${NC} $msg" >&2
+    return 0
+}
+print_warning() {
+    local msg="$1"
+    echo -e "${YELLOW}!${NC} $msg"
+    return 0
+}
+print_info() {
+    local msg="$1"
+    echo -e "${BLUE}→${NC} $msg"
+    return 0
+}
 
 log() {
+    local msg="$1"
     local level="${2:-INFO}"
-    local message="[$(date +'%Y-%m-%d %H:%M:%S')] [$level] $1"
+    local message="[$(date +'%Y-%m-%d %H:%M:%S')] [$level] $msg"
     
     case "$level" in
         ERROR) echo -e "${RED}$message${NC}" >&2 ;;
         WARN)  echo -e "${YELLOW}$message${NC}" ;;
+        INFO)  echo "$message" ;;
         *)     echo "$message" ;;
     esac
     
     if [[ "$LOG_TO_FILE" == true && -w "$LOG_FILE" ]]; then
         echo "$message" >> "$LOG_FILE"
     fi
+    return 0
 }
 
 die() {
-    print_error "$1"
-    exit "${2:-1}"
+    local msg="$1"
+    local exit_code="${2:-1}"
+    print_error "$msg"
+    exit "$exit_code"
 }
 
 require_root() {
     if [[ $EUID -ne 0 ]]; then
         die "This script requires root privileges. Please run with sudo." 1
     fi
+    return 0
 }
 
 require_cmd() {
@@ -97,6 +122,7 @@ require_cmd() {
     if ! command -v "$cmd" &>/dev/null; then
         die "Required command '$cmd' not found. Install it with: apt install $package" 1
     fi
+    return 0
 }
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -159,11 +185,12 @@ mullvad_get_status() {
     else
         echo "unknown"
     fi
+    return 0
 }
 
 mullvad_get_location() {
     local status
-    status=$(mullvad status 2>/dev/null) || { echo "none"; return; }
+    status=$(mullvad status 2>/dev/null) || { echo "none"; return 0; }
     
     # Extract relay info from status output
     # Format: "Connected to se-got-wg-001 in Gothenburg, Sweden"
@@ -175,11 +202,12 @@ mullvad_get_location() {
     else
         echo "none"
     fi
+    return 0
 }
 
 mullvad_get_country_code() {
     local status
-    status=$(mullvad status 2>/dev/null) || { echo "none"; return; }
+    status=$(mullvad status 2>/dev/null) || { echo "none"; return 0; }
     
     # Extract country code from relay name (e.g., "se-got-wg-001" → "se")
     local relay
@@ -190,11 +218,12 @@ mullvad_get_country_code() {
     else
         echo "none"
     fi
+    return 0
 }
 
 mullvad_get_ip() {
     local status
-    status=$(mullvad status 2>/dev/null) || { echo "unknown"; return; }
+    status=$(mullvad status 2>/dev/null) || { echo "unknown"; return 0; }
     
     local ip
     ip=$(echo "$status" | grep -oP 'IPv4: \K[0-9.]+' | head -1) || true
@@ -204,12 +233,14 @@ mullvad_get_ip() {
     else
         echo "unknown"
     fi
+    return 0
 }
 
 mullvad_list_countries() {
     mullvad relay list 2>/dev/null | \
         grep -oP '^[a-z]{2}\s+[A-Za-z ]+' | \
         sort -u
+    return 0
 }
 
 mullvad_validate_country() {
@@ -225,6 +256,7 @@ mullvad_validate_country() {
     fi
     return 1
 }
+# (No changes needed here, already has explicit returns)
 
 mullvad_set_relay() {
     local country="$1"
@@ -234,11 +266,13 @@ mullvad_set_relay() {
     else
         mullvad relay set location "$country" &>/dev/null
     fi
+    return 0
 }
 
 mullvad_set_protocol() {
     local protocol="$1"
     mullvad relay set tunnel-protocol "$protocol" &>/dev/null || true
+    return 0
 }
 
 mullvad_connect() {
@@ -265,6 +299,7 @@ mullvad_connect() {
 mullvad_disconnect() {
     mullvad disconnect &>/dev/null || true
     sleep 1
+    return 0
 }
 
 mullvad_reconnect() {
@@ -273,6 +308,7 @@ mullvad_reconnect() {
     mullvad_disconnect
     mullvad_set_relay "$country"
     mullvad_connect
+    return 0
 }
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -287,11 +323,13 @@ acquire_lock() {
     fi
     
     echo $$ >&200
+    return 0
 }
 
 release_lock() {
     flock -u 200 2>/dev/null || true
     rm -f "$LOCKFILE" 2>/dev/null || true
+    return 0
 }
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -315,6 +353,7 @@ cleanup() {
 
 setup_signals() {
     trap cleanup EXIT INT TERM HUP
+    return 0
 }
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -329,6 +368,7 @@ wizard_welcome() {
     echo -e "Your privacy is protected by switching servers regularly.\n"
     echo -e "Press ${BOLD}Enter${NC} to continue or ${BOLD}Ctrl+C${NC} to exit.\n"
     read -r
+    return 0
 }
 
 wizard_check_requirements() {
@@ -379,6 +419,7 @@ wizard_check_requirements() {
     print_success "All requirements satisfied!"
     echo -e "\nPress ${BOLD}Enter${NC} to continue..."
     read -r
+    return 0
 }
 
 wizard_country_selection() {
@@ -430,6 +471,7 @@ wizard_country_selection() {
     
     echo -e "\nPress ${BOLD}Enter${NC} to continue..."
     read -r
+    return 0
 }
 
 wizard_rotation_interval() {
@@ -480,6 +522,7 @@ wizard_rotation_interval() {
     
     echo -e "\nPress ${BOLD}Enter${NC} to continue..."
     read -r
+    return 0
 }
 
 wizard_logging() {
@@ -535,6 +578,7 @@ wizard_logging() {
     
     echo -e "\nPress ${BOLD}Enter${NC} to continue..."
     read -r
+    return 0
 }
 
 wizard_advanced() {
@@ -557,6 +601,7 @@ wizard_advanced() {
         read -rp "Your choice [1-2]: " proto_choice
         
         case "$proto_choice" in
+            1) TUNNEL_PROTOCOL="wireguard" ;;
             2) TUNNEL_PROTOCOL="openvpn" ;;
             *) TUNNEL_PROTOCOL="wireguard" ;;
         esac
@@ -577,6 +622,7 @@ wizard_advanced() {
     
     echo -e "\nPress ${BOLD}Enter${NC} to continue..."
     read -r
+    return 0
 }
 
 wizard_summary() {
@@ -681,6 +727,7 @@ EOF
     systemctl start mullvad-rotator.service
     
     print_success "Systemd service installed and started"
+    return 0
 }
 
 run_setup_wizard() {
@@ -702,6 +749,7 @@ run_setup_wizard() {
     done
     
     wizard_save_and_install
+    return 0
 }
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -719,6 +767,7 @@ show_status() {
     echo -e "${CYAN}│${NC}  Location: ${BOLD}${location}${NC}"
     echo -e "${CYAN}│${NC}  IP:       ${BOLD}${ip}${NC}"
     echo -e "${CYAN}└─────────────────────────────────────┘${NC}"
+    return 0
 }
 
 rotation_loop() {
@@ -786,6 +835,7 @@ rotation_loop() {
             [[ $BACKOFF_DELAY -gt 300 ]] && BACKOFF_DELAY=300
         fi
     done
+    return 0
 }
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -815,12 +865,13 @@ ${BOLD}EXAMPLES:${NC}
 
 ${BOLD}CONFIGURATION FILE:${NC}
     $CONFIG_FILE
-
 EOF
+    return 0
 }
 
 show_version() {
     echo "Mullvad VPN Server Rotator v${SCRIPT_VERSION}"
+    return 0
 }
 
 show_config() {
@@ -831,12 +882,14 @@ show_config() {
         print_warning "No configuration file found."
         echo "Run '$0 --setup' to create one."
     fi
+    return 0
 }
 
 show_current_status() {
     require_cmd mullvad
     print_header
     show_status
+    return 0
 }
 
 stop_service() {
@@ -846,6 +899,7 @@ stop_service() {
     else
         print_info "Service is not running"
     fi
+    return 0
 }
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -941,6 +995,7 @@ main() {
     
     # Run main loop
     rotation_loop
+    return 0
 }
 
 main "$@"
