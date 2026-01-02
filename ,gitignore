@@ -1,10 +1,26 @@
-.vscode/*
-!.vscode/settings.json
-!.vscode/tasks.json
-!.vscode/launch.json
-!.vscode/extensions.json
-!.vscode/*.code-snippets
-!*.code-workspace
 
-# Built Visual Studio Code Extensions
-*.vsix
+# Logs
+
+*.log
+
+# Config files (contain user settings)
+
+mullvad-rotator.conf
+
+# System files
+
+*.lock
+*.pid
+
+# Editor files
+
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# OS files
+
+.DS_Store
+Thumbs.db
